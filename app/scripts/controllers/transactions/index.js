@@ -279,6 +279,8 @@ export default class TransactionController extends EventEmitter {
       txParams,
       opts.origin,
     );
+    const transactionIsEIP1559 = isEIP1559Transaction(initialTxMeta);
+    const networkIsEIP1559Compatible = await this.getEIP1559Compatibility();
 
     // listen for tx completion (success, fail)
     return new Promise((resolve, reject) => {
@@ -287,6 +289,15 @@ export default class TransactionController extends EventEmitter {
         (finishedTxMeta) => {
           switch (finishedTxMeta.status) {
             case TRANSACTION_STATUSES.SUBMITTED:
+              if (transactionIsEIP1559 && !networkIsEIP1559Compatible) {
+                return reject(
+                  cleanErrorStack(
+                    ethErrors.provider.userRejectedRequest(
+                      'MetaMask Network Compatibility: The current network does not support EIP-1559 transactions',
+                    ),
+                  ),
+                );
+              }
               return resolve(finishedTxMeta.hash);
             case TRANSACTION_STATUSES.REJECTED:
               return reject(
